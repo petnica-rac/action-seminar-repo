@@ -203,11 +203,13 @@ comprehensive project board replication:
 
 1. **Issues**: All issues with comments, labels, assignees, and state
 2. **Projects**: Projects are created with the target repository name
-3. **Custom Fields**: All custom fields including Status, Priority, and other
+3. **Status Field**: The built-in Status field is updated to match the source
+   project's Status options (old options are removed, new ones are added)
+4. **Custom Fields**: All custom fields including Priority and other
    single-select, text, number, date, and iteration fields with their options
-4. **Field Values**: Custom field values (Status, Priority, etc.) are preserved
+5. **Field Values**: Custom field values (Status, Priority, etc.) are preserved
    from source project items to target project items
-5. **Issue Links**: Issues are automatically linked to their corresponding
+6. **Issue Links**: Issues are automatically linked to their corresponding
    projects
 
 ### What Requires Manual Setup
@@ -220,9 +222,11 @@ comprehensive project board replication:
 1. Copies all issues from the source repository
 2. Creates a mapping from source issue numbers to target issue IDs
 3. Creates project with target repository name
-4. Copies all custom fields with their configurations
-5. Automatically links copied issues to their respective projects
-6. Preserves custom field values (Status, Priority, etc.) for each linked issue
+4. Updates the built-in Status field to match the source (removes old options,
+   adds source options)
+5. Copies all custom fields with their configurations
+6. Automatically links copied issues to their respective projects
+7. Preserves custom field values (Status, Priority, etc.) for each linked issue
 
 **Note**: Views cannot be copied via the API and must be created manually
 

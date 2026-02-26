@@ -34308,6 +34308,108 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                 }));
                 const newProjectId = createResult.createProjectV2.projectV2.id;
                 info(`Created project: ${project.title} (${newProjectId})`);
+                // Handle Status field specially - update built-in Status field to match source
+                const sourceStatusField = project.fields.nodes.find((f) => f.name === 'Status');
+                if (sourceStatusField &&
+                    sourceStatusField.dataType === 'SINGLE_SELECT' &&
+                    sourceStatusField.options) {
+                    try {
+                        info('Updating Status field to match source project...');
+                        // Query target project to get Status field ID
+                        const targetStatusQuery = `
+              query($projectId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                          options {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+                        const targetStatusData = (await graphqlWithAuth(targetStatusQuery, {
+                            projectId: newProjectId
+                        }));
+                        const targetStatusField = targetStatusData.node.fields.nodes.find((f) => f.name === 'Status');
+                        if (targetStatusField) {
+                            // Delete all existing Status options
+                            debug(`Deleting ${targetStatusField.options.length} existing Status options...`);
+                            for (const option of targetStatusField.options) {
+                                try {
+                                    const deleteOptionMutation = `
+                    mutation($fieldId: ID!, $optionId: ID!) {
+                      deleteProjectV2FieldOption(input: {
+                        fieldId: $fieldId,
+                        optionId: $optionId
+                      }) {
+                        projectV2Field {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                          }
+                        }
+                      }
+                    }
+                  `;
+                                    await graphqlWithAuth(deleteOptionMutation, {
+                                        fieldId: targetStatusField.id,
+                                        optionId: option.id
+                                    });
+                                    debug(`Deleted option: ${option.name}`);
+                                }
+                                catch (error) {
+                                    warning(`Failed to delete Status option "${option.name}": ${error instanceof Error ? error.message : error}`);
+                                }
+                            }
+                            // Add Status options from source
+                            debug(`Adding ${sourceStatusField.options.length} Status options from source...`);
+                            for (const option of sourceStatusField.options) {
+                                try {
+                                    const createOptionMutation = `
+                    mutation($fieldId: ID!, $name: String!, $color: ProjectV2SingleSelectFieldOptionColor!, $description: String!) {
+                      createProjectV2FieldOption(input: {
+                        fieldId: $fieldId,
+                        name: $name,
+                        color: $color,
+                        description: $description
+                      }) {
+                        projectV2FieldOption {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  `;
+                                    await graphqlWithAuth(createOptionMutation, {
+                                        fieldId: targetStatusField.id,
+                                        name: option.name,
+                                        color: option.color,
+                                        description: option.description || ''
+                                    });
+                                    debug(`Created Status option: ${option.name}`);
+                                }
+                                catch (error) {
+                                    warning(`Failed to create Status option "${option.name}": ${error instanceof Error ? error.message : error}`);
+                                }
+                            }
+                            info('Status field updated successfully');
+                        }
+                        else {
+                            warning('Could not find Status field in target project');
+                        }
+                    }
+                    catch (error) {
+                        warning(`Failed to update Status field: ${error instanceof Error ? error.message : error}`);
+                    }
+                }
                 // Copy custom fields (skip built-in fields)
                 for (const field of project.fields.nodes) {
                     // Skip built-in fields (Title, Assignees, Status, Labels, etc.)
