@@ -34183,35 +34183,6 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                   name
                   layout
                   filter
-                  sortByFields(first: 10) {
-                    nodes {
-                      field {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                        }
-                      }
-                      direction
-                    }
-                  }
-                  groupByFields(first: 10) {
-                    nodes {
-                      field {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                        }
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -34373,35 +34344,6 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                 // Copy views
                 if (project.views.nodes.length > 0) {
                     info(`Copying ${project.views.nodes.length} views...`);
-                    // First, get all fields in the target project to build a mapping
-                    const targetFieldsQuery = `
-            query($projectId: ID!) {
-              node(id: $projectId) {
-                ... on ProjectV2 {
-                  fields(first: 50) {
-                    nodes {
-                      ... on ProjectV2Field {
-                        id
-                        name
-                      }
-                      ... on ProjectV2SingleSelectField {
-                        id
-                        name
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          `;
-                    const targetFieldsData = (await graphqlWithAuth(targetFieldsQuery, {
-                        projectId: newProjectId
-                    }));
-                    // Build mapping from field name to field ID
-                    const fieldNameToId = new Map();
-                    for (const field of targetFieldsData.node.fields.nodes) {
-                        fieldNameToId.set(field.name, field.id);
-                    }
                     for (const view of project.views.nodes) {
                         try {
                             debug(`Copying view: ${view.name}`);

@@ -65,35 +65,6 @@ export async function copyProjects(
                   name
                   layout
                   filter
-                  sortByFields(first: 10) {
-                    nodes {
-                      field {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                        }
-                      }
-                      direction
-                    }
-                  }
-                  groupByFields(first: 10) {
-                    nodes {
-                      field {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                        }
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -132,17 +103,6 @@ export async function copyProjects(
                 name: string
                 layout: string
                 filter: string | null
-                sortByFields: {
-                  nodes: Array<{
-                    field: { id: string; name: string }
-                    direction: string
-                  }>
-                }
-                groupByFields: {
-                  nodes: Array<{
-                    field: { id: string; name: string }
-                  }>
-                }
               }>
             }
           }>
@@ -319,44 +279,6 @@ export async function copyProjects(
         // Copy views
         if (project.views.nodes.length > 0) {
           core.info(`Copying ${project.views.nodes.length} views...`)
-
-          // First, get all fields in the target project to build a mapping
-          const targetFieldsQuery = `
-            query($projectId: ID!) {
-              node(id: $projectId) {
-                ... on ProjectV2 {
-                  fields(first: 50) {
-                    nodes {
-                      ... on ProjectV2Field {
-                        id
-                        name
-                      }
-                      ... on ProjectV2SingleSelectField {
-                        id
-                        name
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          `
-
-          const targetFieldsData = (await graphqlWithAuth(targetFieldsQuery, {
-            projectId: newProjectId
-          })) as {
-            node: {
-              fields: {
-                nodes: Array<{ id: string; name: string }>
-              }
-            }
-          }
-
-          // Build mapping from field name to field ID
-          const fieldNameToId = new Map<string, string>()
-          for (const field of targetFieldsData.node.fields.nodes) {
-            fieldNameToId.set(field.name, field.id)
-          }
 
           for (const view of project.views.nodes) {
             try {

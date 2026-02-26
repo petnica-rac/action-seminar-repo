@@ -12,8 +12,8 @@ projects from a source repository.
   copying files
 - **Issue Preservation**: Copies issues with comments, labels, assignees, and
   state
-- **Project Support**: Copies GitHub Projects v2 with custom fields, views,
-  and automatically links copied issues to projects. Project names match target
+- **Project Support**: Copies GitHub Projects v2 with custom fields, views, and
+  automatically links copied issues to projects. Project names match target
   repository names
 - **Error Handling**: Fail-fast behavior ensures reliability
 
@@ -193,8 +193,9 @@ Create a Personal Access Token (classic or fine-grained) instead.
 - **Project Item Values**: Issues are added to projects but custom field values
   (like Status, Priority, etc.) are not preserved - items will have default
   values
-- **View Sorting/Grouping**: While views are copied with their layouts and
-  filters, sorting and grouping by custom fields may need manual adjustment
+- **View Sorting/Grouping**: Views are copied with their layouts and filters,
+  but sorting and grouping configurations are not preserved and will need to be
+  set up manually
 
 ## Project and Issue Integration
 
