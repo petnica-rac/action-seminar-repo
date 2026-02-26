@@ -1,23 +1,69 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: Repository Cloning Action
+description:
+  Creates a new repository and copies files, issues, and projects from a source
+  repository
+author: ''
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: copy
+  color: blue
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  source-repo:
+    description:
+      'Source repository in format owner/repo (defaults to current repository)'
+    required: false
+    default: ${{ github.repository }}
+  target-repo:
+    description: 'Target repository name (without owner)'
     required: true
-    default: '1000'
+  target-owner:
+    description: 'Target owner/org (defaults to owner of source repository)'
+    required: false
+  github-token:
+    description: 'GitHub token with repo, project, and org permissions'
+    required: true
+    default: ${{ github.token }}
+  copy-files:
+    description:
+      'Copy all files from default branch (excludes .github/workflows)'
+    required: false
+    default: 'true'
+  copy-issues:
+    description: 'Copy all issues with comments and metadata'
+    required: false
+    default: 'true'
+  copy-projects:
+    description: 'Copy Projects v2'
+    required: false
+    default: 'true'
+  include-closed-issues:
+    description: 'Include closed issues when copying'
+    required: false
+    default: 'false'
+  target-visibility:
+    description: 'Visibility of target repository (public, private, internal)'
+    required: false
+    default: 'private'
+  default-branch:
+    description: 'Default branch name for target repository'
+    required: false
+    default: 'main'
 
 # Define your outputs here.
 outputs:
-  time:
-    description: Your output description here
+  repository-url:
+    description: 'URL of the newly created repository'
+  repository-full-name:
+    description: 'Full name of repository (owner/repo)'
+  files-copied:
+    description: 'Number of files copied'
+  issues-copied:
+    description: 'Number of issues copied'
+  projects-copied:
+    description: 'Number of projects copied'
 
 runs:
   using: node24
