@@ -34175,6 +34175,46 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                       title
                     }
                   }
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldTextValue {
+                        text
+                        field {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldNumberValue {
+                        number
+                        field {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldDateValue {
+                        date
+                        field {
+                          ... on ProjectV2Field {
+                            id
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        name
+                        field {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
               views(first: 20) {
@@ -34401,9 +34441,55 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                         }
                     }
                 }
-                // Link issues to the project
+                // Link issues to the project and set field values
                 if (project.items.nodes.length > 0) {
                     info(`Linking ${project.items.nodes.length} items to project "${project.title}"...`);
+                    // Get target project fields with their IDs and options
+                    const targetFieldsQuery = `
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 50) {
+                    nodes {
+                      ... on ProjectV2Field {
+                        id
+                        name
+                        dataType
+                      }
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        dataType
+                        options {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `;
+                    const targetFieldsData = (await graphqlWithAuth(targetFieldsQuery, {
+                        projectId: newProjectId
+                    }));
+                    // Build field name to field mapping
+                    const fieldMap = new Map();
+                    const fieldOptionMap = new Map(); // field name -> option name -> option ID
+                    for (const field of targetFieldsData.node.fields.nodes) {
+                        fieldMap.set(field.name, {
+                            id: field.id,
+                            dataType: field.dataType
+                        });
+                        if (field.options) {
+                            const optionMap = new Map();
+                            for (const option of field.options) {
+                                optionMap.set(option.name, option.id);
+                            }
+                            fieldOptionMap.set(field.name, optionMap);
+                        }
+                    }
                     let linkedCount = 0;
                     for (const item of project.items.nodes) {
                         if (!item.content || typeof item.content.number !== 'number') {
@@ -34418,6 +34504,7 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                             continue;
                         }
                         try {
+                            // Add issue to project
                             const addItemMutation = `
                 mutation($projectId: ID!, $contentId: ID!) {
                   addProjectV2ItemById(input: {
@@ -34430,12 +34517,140 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                   }
                 }
               `;
-                            await graphqlWithAuth(addItemMutation, {
+                            const addResult = (await graphqlWithAuth(addItemMutation, {
                                 projectId: newProjectId,
                                 contentId: targetIssue.targetIssueNodeId
-                            });
+                            }));
+                            const newItemId = addResult.addProjectV2ItemById.item.id;
+                            // Set field values
+                            for (const fieldValue of item.fieldValues.nodes) {
+                                const field = fieldValue.field;
+                                const targetField = fieldMap.get(field.name);
+                                if (!targetField) {
+                                    debug(`Field "${field.name}" not found in target project, skipping`);
+                                    continue;
+                                }
+                                try {
+                                    // Handle different field types
+                                    if ('text' in fieldValue && fieldValue.text) {
+                                        // Text field
+                                        const updateMutation = `
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: {
+                            text: $value
+                          }
+                        }) {
+                          projectV2Item {
+                            id
+                          }
+                        }
+                      }
+                    `;
+                                        await graphqlWithAuth(updateMutation, {
+                                            projectId: newProjectId,
+                                            itemId: newItemId,
+                                            fieldId: targetField.id,
+                                            value: fieldValue.text
+                                        });
+                                    }
+                                    else if ('number' in fieldValue &&
+                                        fieldValue.number != null) {
+                                        // Number field
+                                        const updateMutation = `
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: Float!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: {
+                            number: $value
+                          }
+                        }) {
+                          projectV2Item {
+                            id
+                          }
+                        }
+                      }
+                    `;
+                                        await graphqlWithAuth(updateMutation, {
+                                            projectId: newProjectId,
+                                            itemId: newItemId,
+                                            fieldId: targetField.id,
+                                            value: fieldValue.number
+                                        });
+                                    }
+                                    else if ('date' in fieldValue && fieldValue.date) {
+                                        // Date field
+                                        const updateMutation = `
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: Date!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: {
+                            date: $value
+                          }
+                        }) {
+                          projectV2Item {
+                            id
+                          }
+                        }
+                      }
+                    `;
+                                        await graphqlWithAuth(updateMutation, {
+                                            projectId: newProjectId,
+                                            itemId: newItemId,
+                                            fieldId: targetField.id,
+                                            value: fieldValue.date
+                                        });
+                                    }
+                                    else if ('name' in fieldValue && fieldValue.name) {
+                                        // Single-select field
+                                        const optionMap = fieldOptionMap.get(field.name);
+                                        if (!optionMap) {
+                                            debug(`Option map not found for field "${field.name}"`);
+                                            continue;
+                                        }
+                                        const optionId = optionMap.get(fieldValue.name);
+                                        if (!optionId) {
+                                            debug(`Option "${fieldValue.name}" not found in field "${field.name}"`);
+                                            continue;
+                                        }
+                                        const updateMutation = `
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: {
+                            singleSelectOptionId: $optionId
+                          }
+                        }) {
+                          projectV2Item {
+                            id
+                          }
+                        }
+                      }
+                    `;
+                                        await graphqlWithAuth(updateMutation, {
+                                            projectId: newProjectId,
+                                            itemId: newItemId,
+                                            fieldId: targetField.id,
+                                            optionId
+                                        });
+                                        debug(`Set ${field.name} = "${fieldValue.name}" for issue #${targetIssue.targetIssueNumber}`);
+                                    }
+                                }
+                                catch (error) {
+                                    warning(`Failed to set field "${field.name}" for issue #${targetIssue.targetIssueNumber}: ${error instanceof Error ? error.message : error}`);
+                                }
+                            }
                             linkedCount++;
-                            debug(`Linked issue #${targetIssue.targetIssueNumber} to project "${project.title}"`);
+                            debug(`Linked issue #${targetIssue.targetIssueNumber} to project "${project.title}" with field values`);
                         }
                         catch (error) {
                             warning(`Failed to link issue #${targetIssue.targetIssueNumber} to project: ${error instanceof Error ? error.message : error}`);
