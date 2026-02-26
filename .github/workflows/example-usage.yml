@@ -1,0 +1,23 @@
+name: Example Usage
+
+on:
+  workflow_dispatch:
+    inputs:
+      target-repo-name:
+        description: 'Name of the new repository to create'
+        required: true
+        type: string
+
+jobs:
+  clone-repository:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository with all content
+        uses: petnica-rac/action-seminar-repo@v0
+        with:
+          target-repo: ${{ inputs.target-repo-name }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          copy-files: true
+          copy-issues: true
+          copy-projects: true
+          target-visibility: private
