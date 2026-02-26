@@ -44,6 +44,7 @@ export async function copyProjects(
                       id
                       name
                       color
+                      description
                     }
                   }
                 }
@@ -128,7 +129,12 @@ export async function copyProjects(
                 id: string
                 name: string
                 dataType: string
-                options?: Array<{ id: string; name: string; color: string }>
+                options?: Array<{
+                  id: string
+                  name: string
+                  color: string
+                  description?: string
+                }>
               }>
             }
             items: {
@@ -255,16 +261,40 @@ export async function copyProjects(
 
         // Copy custom fields (skip built-in fields)
         for (const field of project.fields.nodes) {
-          // Skip built-in fields (Title, Assignees, Status, etc.)
+          // Skip built-in fields (Title, Assignees, Status, Labels, etc.)
+          // Also skip special GitHub-managed fields that cannot be created as custom fields
           if (
             [
               'Title',
               'Assignees',
               'Labels',
               'Milestone',
-              'Repository'
+              'Repository',
+              'Linked pull requests',
+              'Reviewers',
+              'Parent issue',
+              'Sub-issues progress',
+              'Tracks',
+              'Tracked by'
             ].includes(field.name)
           ) {
+            core.debug(`Skipping built-in field: ${field.name}`)
+            continue
+          }
+
+          // Only process valid custom field types
+          // Valid types: DATE, ITERATION, NUMBER, SINGLE_SELECT, TEXT
+          const validFieldTypes = [
+            'DATE',
+            'ITERATION',
+            'NUMBER',
+            'SINGLE_SELECT',
+            'TEXT'
+          ]
+          if (!validFieldTypes.includes(field.dataType)) {
+            core.warning(
+              `Skipping field "${field.name}" with unsupported type: ${field.dataType}`
+            )
             continue
           }
 
@@ -290,9 +320,15 @@ export async function copyProjects(
               `
 
               const options = field.options.map(
-                (opt: { id: string; name: string; color: string }) => ({
+                (opt: {
+                  id: string
+                  name: string
+                  color: string
+                  description?: string
+                }) => ({
                   name: opt.name,
-                  color: opt.color
+                  color: opt.color,
+                  description: opt.description || ''
                 })
               )
 
@@ -336,76 +372,14 @@ export async function copyProjects(
           }
         }
 
-        // Copy views
+        // Copy views - DISABLED: GitHub GraphQL API does not support view creation mutations
+        // The createProjectV2View and updateProjectV2View mutations are not officially available
+        // Views must be created manually through the GitHub UI
         if (project.views.nodes.length > 0) {
-          core.info(`Copying ${project.views.nodes.length} views...`)
-
-          for (const view of project.views.nodes) {
-            try {
-              core.debug(`Copying view: ${view.name}`)
-
-              // Create view
-              const createViewMutation = `
-                mutation($projectId: ID!, $name: String!, $layout: ProjectV2ViewLayout!) {
-                  createProjectV2View(input: {
-                    projectId: $projectId,
-                    name: $name,
-                    layout: $layout
-                  }) {
-                    view {
-                      id
-                      name
-                    }
-                  }
-                }
-              `
-
-              const viewResult = (await graphqlWithAuth(createViewMutation, {
-                projectId: newProjectId,
-                name: view.name,
-                layout: view.layout
-              })) as {
-                createProjectV2View: { view: { id: string; name: string } }
-              }
-
-              const newViewId = viewResult.createProjectV2View.view.id
-
-              // Update view with filter if present
-              if (view.filter) {
-                try {
-                  const updateViewMutation = `
-                    mutation($projectId: ID!, $viewId: ID!, $filter: String!) {
-                      updateProjectV2View(input: {
-                        projectId: $projectId,
-                        viewId: $viewId,
-                        filter: $filter
-                      }) {
-                        view {
-                          id
-                        }
-                      }
-                    }
-                  `
-
-                  await graphqlWithAuth(updateViewMutation, {
-                    projectId: newProjectId,
-                    viewId: newViewId,
-                    filter: view.filter
-                  })
-                } catch (error) {
-                  core.warning(
-                    `Failed to set filter for view "${view.name}": ${error instanceof Error ? error.message : error}`
-                  )
-                }
-              }
-
-              core.info(`Created view: ${view.name}`)
-            } catch (error) {
-              core.warning(
-                `Failed to copy view "${view.name}": ${error instanceof Error ? error.message : error}`
-              )
-            }
-          }
+          core.warning(
+            `Skipping ${project.views.nodes.length} view(s) - GitHub API does not support programmatic view creation. ` +
+              `Views must be created manually in the GitHub UI.`
+          )
         }
 
         // Link issues to the project and set field values
@@ -519,6 +493,15 @@ export async function copyProjects(
               // Set field values
               for (const fieldValue of item.fieldValues.nodes) {
                 const field = fieldValue.field
+
+                // Skip if field is undefined or null
+                if (!field || !field.name) {
+                  core.debug(
+                    'Skipping field value with undefined or null field'
+                  )
+                  continue
+                }
+
                 const targetField = fieldMap.get(field.name)
 
                 if (!targetField) {

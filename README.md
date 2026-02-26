@@ -190,9 +190,9 @@ Create a Personal Access Token (classic or fine-grained) instead.
 - **Large Files**: Files over 100MB cannot be copied via the GitHub API
 - **Projects v1**: Only Projects v2 is supported (Projects v1 is deprecated)
 - **Reactions**: Issue and comment reactions are not copied
-- **View Sorting/Grouping**: Views are copied with their layouts and filters,
-  but sorting and grouping configurations are not preserved and will need to be
-  set up manually
+- **Project Views**: GitHub GraphQL API does not support programmatic creation
+  of project views. Views must be created manually in the GitHub UI after the
+  project is copied. However, custom fields and field values are preserved
 
 ## Project and Issue Integration
 
@@ -204,13 +204,16 @@ comprehensive project board replication:
 1. **Issues**: All issues with comments, labels, assignees, and state
 2. **Projects**: Projects are created with the target repository name
 3. **Custom Fields**: All custom fields including Status, Priority, and other
-   single-select or text fields with their options
+   single-select, text, number, date, and iteration fields with their options
 4. **Field Values**: Custom field values (Status, Priority, etc.) are preserved
    from source project items to target project items
-5. **Views**: All project views (Table, Board, Roadmap) with their layouts and
-   filters
-6. **Issue Links**: Issues are automatically linked to their corresponding
+5. **Issue Links**: Issues are automatically linked to their corresponding
    projects
+
+### What Requires Manual Setup
+
+- **Project Views**: GitHub API does not support programmatic view creation.
+  Views (Table, Board, Roadmap) must be created manually in the GitHub UI
 
 ### Copy Process
 
@@ -218,9 +221,10 @@ comprehensive project board replication:
 2. Creates a mapping from source issue numbers to target issue IDs
 3. Creates project with target repository name
 4. Copies all custom fields with their configurations
-5. Copies all views with their layouts and filters
-6. Automatically links copied issues to their respective projects
-7. Preserves custom field values (Status, Priority, etc.) for each linked issue
+5. Automatically links copied issues to their respective projects
+6. Preserves custom field values (Status, Priority, etc.) for each linked issue
+
+**Note**: Views cannot be copied via the API and must be created manually
 
 **Note**: For automatic issue linking to work, ensure both `copy-issues` and
 `copy-projects` are set to `true`. Issues must be copied before projects for the
