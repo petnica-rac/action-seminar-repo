@@ -86,14 +86,73 @@ Copy from a specific source repository with custom options:
 
 ## Permissions
 
-The `github-token` must have the following permissions:
+The `github-token` input requires a GitHub token with specific permissions to
+create repositories and copy content. The default `GITHUB_TOKEN` typically lacks
+sufficient permissions, so you'll need to create a Personal Access Token (PAT).
 
-- `repo` - Full control of repositories
-- `project` - Full control of projects (if copying projects)
-- `write:org` - Write access to organization (if creating in an organization)
+### Classic Personal Access Token
 
-For most use cases with the default `GITHUB_TOKEN`, you may need to provide a
-Personal Access Token (PAT) with these permissions:
+If using a classic PAT, select the following scopes:
+
+- **`repo`** - Full control of private repositories
+- **`project`** - Full control of projects (required if copying projects)
+- **`write:org`** - Write access to organization (required if creating
+  repository in an organization)
+
+### Fine-Grained Personal Access Token (Recommended)
+
+Fine-grained tokens offer more granular control. Configure the following
+permissions:
+
+#### Repository Permissions
+
+These permissions apply to **both the source and target repositories**:
+
+- **Administration: Read and write**
+  - Required to create repositories
+  - Required to access repository-level Projects v2
+  - Covers repository settings and projects
+
+- **Contents: Read and write**
+  - Required to read files from source repository
+  - Required to write files to target repository
+
+- **Issues: Read and write**
+  - Required to read issues from source repository
+  - Required to create issues, labels, and comments in target repository
+
+- **Metadata: Read** (automatically included)
+  - Required for basic repository information
+
+#### Organization Permissions (Conditional)
+
+Only needed if your projects are organization-level projects:
+
+- **Organization projects: Read and write**
+  - Required **only** if projects are at the organization level (not
+    repository-level)
+  - Most projects are repository-level and covered by "Administration"
+    permission above
+
+**How to identify project type:**
+
+- Repository-level projects appear under the repository's "Projects" tab →
+  covered by **Administration** permission
+- Organization-level projects appear under the organization's "Projects" page →
+  requires **Organization projects** permission
+
+#### Token Repository Access
+
+When creating your fine-grained token, ensure it has access to:
+
+1. **Source repository** - where files, issues, and projects are copied from
+2. **Target owner/organization** - where the new repository will be created
+
+**Note:** Since the target repository doesn't exist yet, you may need to grant
+the token access to "All repositories" under the target owner, or manually add
+access after the repository is created if you need to re-run the action.
+
+### Usage Example
 
 ```yaml
 - uses: petnica-rac/action-seminar-repo@v0
@@ -101,6 +160,23 @@ Personal Access Token (PAT) with these permissions:
     target-repo: 'new-repo'
     github-token: ${{ secrets.PAT_TOKEN }}
 ```
+
+### Troubleshooting Permission Errors
+
+**Error: "Resource not accessible by personal access token"**
+
+This typically means your fine-grained token is missing required permissions.
+Check that you have:
+
+- **Administration** permission (Read and write) on both source and target repos
+- **Organization projects** permission (Read and write) if using org-level
+  projects
+
+**Error: "Resource not accessible by integration"**
+
+This occurs when using the default `GITHUB_TOKEN`, which lacks permissions to
+read user information and create repositories outside the workflow's repository.
+Create a Personal Access Token (classic or fine-grained) instead.
 
 ## Limitations
 

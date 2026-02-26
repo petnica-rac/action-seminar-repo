@@ -104,36 +104,43 @@ export async function copyProjects(
     const targetRepoId = targetRepo.node_id
 
     // Get target owner ID (for project creation)
-    const ownerQuery = `
-      query($login: String!) {
-        user(login: $login) {
-          id
-        }
-        organization(login: $login) {
-          id
-        }
-      }
-    `
-
+    // Try organization first, then user
     let targetOwnerId: string
     try {
-      const ownerData = (await graphqlWithAuth(ownerQuery, {
-        login: config.targetOwner
-      })) as { organization?: { id: string }; user?: { id: string } }
-      targetOwnerId = ownerData.organization?.id || ownerData.user?.id || ''
-    } catch {
-      // Fallback: try just user
-      const userQuery = `
+      const orgQuery = `
         query($login: String!) {
-          user(login: $login) {
+          organization(login: $login) {
             id
           }
         }
       `
-      const userData = (await graphqlWithAuth(userQuery, {
+      const orgData = (await graphqlWithAuth(orgQuery, {
         login: config.targetOwner
-      })) as { user: { id: string } }
-      targetOwnerId = userData.user.id
+      })) as { organization: { id: string } }
+      targetOwnerId = orgData.organization.id
+      core.info(`Target owner is an organization: ${config.targetOwner}`)
+    } catch {
+      // Fallback: try user if organization query fails
+      try {
+        const userQuery = `
+          query($login: String!) {
+            user(login: $login) {
+              id
+            }
+          }
+        `
+        const userData = (await graphqlWithAuth(userQuery, {
+          login: config.targetOwner
+        })) as { user: { id: string } }
+        targetOwnerId = userData.user.id
+        core.info(`Target owner is a user: ${config.targetOwner}`)
+      } catch (error) {
+        throw new Error(
+          `Failed to get owner ID for "${config.targetOwner}". ` +
+            `Ensure it's a valid GitHub user or organization.`,
+          { cause: error }
+        )
+      }
     }
 
     let copiedCount = 0

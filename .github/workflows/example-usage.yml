@@ -16,7 +16,7 @@ jobs:
         uses: petnica-rac/action-seminar-repo@v0
         with:
           target-repo: ${{ inputs.target-repo-name }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PROJECT_TEMPLATE_PAT }}
           copy-files: true
           copy-issues: true
           copy-projects: true
