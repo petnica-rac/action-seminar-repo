@@ -190,9 +190,6 @@ Create a Personal Access Token (classic or fine-grained) instead.
 - **Large Files**: Files over 100MB cannot be copied via the GitHub API
 - **Projects v1**: Only Projects v2 is supported (Projects v1 is deprecated)
 - **Reactions**: Issue and comment reactions are not copied
-- **Project Item Values**: Issues are added to projects but custom field values
-  (like Status, Priority, etc.) are not preserved - items will have default
-  values
 - **View Sorting/Grouping**: Views are copied with their layouts and filters,
   but sorting and grouping configurations are not preserved and will need to be
   set up manually
@@ -208,9 +205,11 @@ comprehensive project board replication:
 2. **Projects**: Projects are created with the target repository name
 3. **Custom Fields**: All custom fields including Status, Priority, and other
    single-select or text fields with their options
-4. **Views**: All project views (Table, Board, Roadmap) with their layouts and
+4. **Field Values**: Custom field values (Status, Priority, etc.) are preserved
+   from source project items to target project items
+5. **Views**: All project views (Table, Board, Roadmap) with their layouts and
    filters
-5. **Issue Links**: Issues are automatically linked to their corresponding
+6. **Issue Links**: Issues are automatically linked to their corresponding
    projects
 
 ### Copy Process
@@ -221,6 +220,7 @@ comprehensive project board replication:
 4. Copies all custom fields with their configurations
 5. Copies all views with their layouts and filters
 6. Automatically links copied issues to their respective projects
+7. Preserves custom field values (Status, Priority, etc.) for each linked issue
 
 **Note**: For automatic issue linking to work, ensure both `copy-issues` and
 `copy-projects` are set to `true`. Issues must be copied before projects for the
