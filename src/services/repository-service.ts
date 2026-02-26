@@ -10,9 +10,16 @@ export async function validatePermissions(
   config: ActionConfig
 ): Promise<void> {
   try {
-    // Verify authentication
-    const { data: user } = await client.users.getAuthenticated()
-    core.info(`Authenticated as: ${user.login}`)
+    // Try to verify authentication (may fail with default GITHUB_TOKEN)
+    try {
+      const { data: user } = await client.users.getAuthenticated()
+      core.info(`Authenticated as: ${user.login}`)
+    } catch (authError) {
+      // Default GITHUB_TOKEN doesn't have user:read permission, which is fine
+      core.debug(
+        'Could not get authenticated user info (expected with default GITHUB_TOKEN)'
+      )
+    }
 
     // Check if target owner is an organization
     const { data: targetOwnerData } = await client.users.getByUsername({

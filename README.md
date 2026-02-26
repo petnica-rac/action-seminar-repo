@@ -1,13 +1,17 @@
 # Repository Cloning Action
 
-A GitHub Action that creates a new repository and copies files, issues, and projects from a source repository.
+A GitHub Action that creates a new repository and copies files, issues, and
+projects from a source repository.
 
 ## Features
 
-- **Smart Defaults**: Source repository defaults to the current repository where the action runs
+- **Smart Defaults**: Source repository defaults to the current repository where
+  the action runs
 - **Flexible Configuration**: Choose what to copy (files, issues, projects)
-- **Workflow Exclusion**: Automatically excludes `.github/workflows` when copying files
-- **Issue Preservation**: Copies issues with comments, labels, assignees, and state
+- **Workflow Exclusion**: Automatically excludes `.github/workflows` when
+  copying files
+- **Issue Preservation**: Copies issues with comments, labels, assignees, and
+  state
 - **Project Support**: Copies GitHub Projects v2 with custom fields
 - **Error Handling**: Fail-fast behavior ensures reliability
 
@@ -57,28 +61,28 @@ Copy from a specific source repository with custom options:
 
 ## Inputs
 
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `source-repo` | Source repository in format `owner/repo` | No | Current repository |
-| `target-repo` | Target repository name (without owner) | **Yes** | - |
-| `target-owner` | Target owner/org | No | Source repository owner |
-| `github-token` | GitHub token with repo, project, and org permissions | **Yes** | `${{ github.token }}` |
-| `copy-files` | Copy all files from default branch | No | `true` |
-| `copy-issues` | Copy all issues with comments and metadata | No | `true` |
-| `copy-projects` | Copy Projects v2 | No | `true` |
-| `include-closed-issues` | Include closed issues when copying | No | `false` |
-| `target-visibility` | Visibility of target repository (`public`, `private`, `internal`) | No | `private` |
-| `default-branch` | Default branch name for target repository | No | `main` |
+| Input                   | Description                                                       | Required | Default                 |
+| ----------------------- | ----------------------------------------------------------------- | -------- | ----------------------- |
+| `source-repo`           | Source repository in format `owner/repo`                          | No       | Current repository      |
+| `target-repo`           | Target repository name (without owner)                            | **Yes**  | -                       |
+| `target-owner`          | Target owner/org                                                  | No       | Source repository owner |
+| `github-token`          | GitHub token with repo, project, and org permissions              | **Yes**  | `${{ github.token }}`   |
+| `copy-files`            | Copy all files from default branch                                | No       | `true`                  |
+| `copy-issues`           | Copy all issues with comments and metadata                        | No       | `true`                  |
+| `copy-projects`         | Copy Projects v2                                                  | No       | `true`                  |
+| `include-closed-issues` | Include closed issues when copying                                | No       | `false`                 |
+| `target-visibility`     | Visibility of target repository (`public`, `private`, `internal`) | No       | `private`               |
+| `default-branch`        | Default branch name for target repository                         | No       | `main`                  |
 
 ## Outputs
 
-| Output | Description |
-|--------|-------------|
-| `repository-url` | URL of the newly created repository |
+| Output                 | Description                            |
+| ---------------------- | -------------------------------------- |
+| `repository-url`       | URL of the newly created repository    |
 | `repository-full-name` | Full name of repository (`owner/repo`) |
-| `files-copied` | Number of files copied |
-| `issues-copied` | Number of issues copied |
-| `projects-copied` | Number of projects copied |
+| `files-copied`         | Number of files copied                 |
+| `issues-copied`        | Number of issues copied                |
+| `projects-copied`      | Number of projects copied              |
 
 ## Permissions
 
@@ -88,7 +92,8 @@ The `github-token` must have the following permissions:
 - `project` - Full control of projects (if copying projects)
 - `write:org` - Write access to organization (if creating in an organization)
 
-For most use cases with the default `GITHUB_TOKEN`, you may need to provide a Personal Access Token (PAT) with these permissions:
+For most use cases with the default `GITHUB_TOKEN`, you may need to provide a
+Personal Access Token (PAT) with these permissions:
 
 ```yaml
 - uses: petnica-rac/action-seminar-repo@v0
@@ -99,9 +104,11 @@ For most use cases with the default `GITHUB_TOKEN`, you may need to provide a Pe
 
 ## Limitations
 
-- **Workflow Files**: `.github/workflows` directory is excluded when copying files
+- **Workflow Files**: `.github/workflows` directory is excluded when copying
+  files
 - **Pull Requests**: Pull requests are not copied
-- **Issue Numbers**: Issue numbers will differ in the target repository (original number is referenced in the issue body)
+- **Issue Numbers**: Issue numbers will differ in the target repository
+  (original number is referenced in the issue body)
 - **Large Files**: Files over 100MB cannot be copied via the GitHub API
 - **Projects v1**: Only Projects v2 is supported (Projects v1 is deprecated)
 - **Reactions**: Issue and comment reactions are not copied
@@ -110,7 +117,8 @@ For most use cases with the default `GITHUB_TOKEN`, you may need to provide a Pe
 
 ### 1. Create Template Instances
 
-Use this action in a template repository to allow users to create fully-configured instances:
+Use this action in a template repository to allow users to create
+fully-configured instances:
 
 ```yaml
 name: Create Instance from Template
@@ -141,7 +149,7 @@ name: Backup Repository
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Weekly backup
+    - cron: '0 0 * * 0' # Weekly backup
 
 jobs:
   backup:
@@ -149,7 +157,8 @@ jobs:
     steps:
       - uses: petnica-rac/action-seminar-repo@v0
         with:
-          target-repo: 'backup-${{ github.event.repository.name }}-${{ github.run_number }}'
+          target-repo:
+            'backup-${{ github.event.repository.name }}-${{ github.run_number }}'
           github-token: ${{ secrets.PAT_TOKEN }}
 ```
 
