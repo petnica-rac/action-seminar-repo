@@ -12,8 +12,9 @@ projects from a source repository.
   copying files
 - **Issue Preservation**: Copies issues with comments, labels, assignees, and
   state
-- **Project Support**: Copies GitHub Projects v2 with custom fields and
-  automatically links copied issues to projects
+- **Project Support**: Copies GitHub Projects v2 with custom fields, views,
+  and automatically links copied issues to projects. Project names match target
+  repository names
 - **Error Handling**: Fail-fast behavior ensures reliability
 
 ## Usage
@@ -189,18 +190,36 @@ Create a Personal Access Token (classic or fine-grained) instead.
 - **Large Files**: Files over 100MB cannot be copied via the GitHub API
 - **Projects v1**: Only Projects v2 is supported (Projects v1 is deprecated)
 - **Reactions**: Issue and comment reactions are not copied
-- **Project Item Ordering**: Issues are added to projects but custom ordering
-  and field values are not preserved
+- **Project Item Values**: Issues are added to projects but custom field values
+  (like Status, Priority, etc.) are not preserved - items will have default
+  values
+- **View Sorting/Grouping**: While views are copied with their layouts and
+  filters, sorting and grouping by custom fields may need manual adjustment
 
 ## Project and Issue Integration
 
-When both `copy-issues` and `copy-projects` are enabled, the action automatically
-links copied issues to their corresponding projects. The action:
+When both `copy-issues` and `copy-projects` are enabled, the action provides
+comprehensive project board replication:
+
+### What Gets Copied
+
+1. **Issues**: All issues with comments, labels, assignees, and state
+2. **Projects**: Projects are created with the target repository name
+3. **Custom Fields**: All custom fields including Status, Priority, and other
+   single-select or text fields with their options
+4. **Views**: All project views (Table, Board, Roadmap) with their layouts and
+   filters
+5. **Issue Links**: Issues are automatically linked to their corresponding
+   projects
+
+### Copy Process
 
 1. Copies all issues from the source repository
 2. Creates a mapping from source issue numbers to target issue IDs
-3. Copies all projects with their custom fields
-4. Automatically adds the copied issues to their respective projects
+3. Creates project with target repository name
+4. Copies all custom fields with their configurations
+5. Copies all views with their layouts and filters
+6. Automatically links copied issues to their respective projects
 
 **Note**: For automatic issue linking to work, ensure both `copy-issues` and
 `copy-projects` are set to `true`. Issues must be copied before projects for the

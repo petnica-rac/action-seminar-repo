@@ -34177,6 +34177,43 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                   }
                 }
               }
+              views(first: 20) {
+                nodes {
+                  id
+                  name
+                  layout
+                  filter
+                  sortByFields(first: 10) {
+                    nodes {
+                      field {
+                        ... on ProjectV2Field {
+                          id
+                          name
+                        }
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                        }
+                      }
+                      direction
+                    }
+                  }
+                  groupByFields(first: 10) {
+                    nodes {
+                      field {
+                        ... on ProjectV2Field {
+                          id
+                          name
+                        }
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -34236,7 +34273,8 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
         for (const project of projects) {
             try {
                 info(`Copying project: ${project.title}`);
-                // Create project in target
+                // Create project in target with target repo name
+                const projectTitle = config.targetRepo;
                 const createProjectMutation = `
           mutation($ownerId: ID!, $title: String!, $repositoryId: ID!) {
             createProjectV2(input: {
@@ -34253,7 +34291,7 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
         `;
                 const createResult = (await graphqlWithAuth(createProjectMutation, {
                     ownerId: targetOwnerId,
-                    title: project.title,
+                    title: projectTitle,
                     repositoryId: targetRepoId
                 }));
                 const newProjectId = createResult.createProjectV2.projectV2.id;
@@ -34330,6 +34368,95 @@ async function copyProjects(token, config, targetRepo, issueMapping) {
                     }
                     catch (error) {
                         warning(`Failed to create field "${field.name}": ${error instanceof Error ? error.message : error}`);
+                    }
+                }
+                // Copy views
+                if (project.views.nodes.length > 0) {
+                    info(`Copying ${project.views.nodes.length} views...`);
+                    // First, get all fields in the target project to build a mapping
+                    const targetFieldsQuery = `
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 50) {
+                    nodes {
+                      ... on ProjectV2Field {
+                        id
+                        name
+                      }
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `;
+                    const targetFieldsData = (await graphqlWithAuth(targetFieldsQuery, {
+                        projectId: newProjectId
+                    }));
+                    // Build mapping from field name to field ID
+                    const fieldNameToId = new Map();
+                    for (const field of targetFieldsData.node.fields.nodes) {
+                        fieldNameToId.set(field.name, field.id);
+                    }
+                    for (const view of project.views.nodes) {
+                        try {
+                            debug(`Copying view: ${view.name}`);
+                            // Create view
+                            const createViewMutation = `
+                mutation($projectId: ID!, $name: String!, $layout: ProjectV2ViewLayout!) {
+                  createProjectV2View(input: {
+                    projectId: $projectId,
+                    name: $name,
+                    layout: $layout
+                  }) {
+                    view {
+                      id
+                      name
+                    }
+                  }
+                }
+              `;
+                            const viewResult = (await graphqlWithAuth(createViewMutation, {
+                                projectId: newProjectId,
+                                name: view.name,
+                                layout: view.layout
+                            }));
+                            const newViewId = viewResult.createProjectV2View.view.id;
+                            // Update view with filter if present
+                            if (view.filter) {
+                                try {
+                                    const updateViewMutation = `
+                    mutation($projectId: ID!, $viewId: ID!, $filter: String!) {
+                      updateProjectV2View(input: {
+                        projectId: $projectId,
+                        viewId: $viewId,
+                        filter: $filter
+                      }) {
+                        view {
+                          id
+                        }
+                      }
+                    }
+                  `;
+                                    await graphqlWithAuth(updateViewMutation, {
+                                        projectId: newProjectId,
+                                        viewId: newViewId,
+                                        filter: view.filter
+                                    });
+                                }
+                                catch (error) {
+                                    warning(`Failed to set filter for view "${view.name}": ${error instanceof Error ? error.message : error}`);
+                                }
+                            }
+                            info(`Created view: ${view.name}`);
+                        }
+                        catch (error) {
+                            warning(`Failed to copy view "${view.name}": ${error instanceof Error ? error.message : error}`);
+                        }
                     }
                 }
                 // Link issues to the project
