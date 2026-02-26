@@ -34,3 +34,21 @@ export interface RepositoryInfo {
   default_branch: string
   node_id: string
 }
+
+/**
+ * Mapping from source issue number to target issue details
+ */
+export interface IssueMapping {
+  [sourceIssueNumber: number]: {
+    targetIssueNumber: number
+    targetIssueNodeId: string
+  }
+}
+
+/**
+ * Result of copying issues
+ */
+export interface CopyIssuesResult {
+  count: number
+  issueMapping: IssueMapping
+}

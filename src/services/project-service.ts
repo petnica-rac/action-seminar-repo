@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import { graphql } from '@octokit/graphql'
-import type { ActionConfig, RepositoryInfo } from '../types.js'
+import type { ActionConfig, IssueMapping, RepositoryInfo } from '../types.js'
 
 /**
  * Copy Projects v2 from source repository to target repository
@@ -8,7 +8,8 @@ import type { ActionConfig, RepositoryInfo } from '../types.js'
 export async function copyProjects(
   token: string,
   config: ActionConfig,
-  targetRepo: RepositoryInfo
+  targetRepo: RepositoryInfo,
+  issueMapping: IssueMapping
 ): Promise<number> {
   try {
     const graphqlWithAuth = graphql.defaults({
@@ -258,14 +259,62 @@ export async function copyProjects(
           }
         }
 
-        // Note: Linking issues would require matching by title from target repo
-        // This is complex and may not work well if issues haven't been copied yet
-        // or if titles have changed. Skipping for initial implementation.
+        // Link issues to the project
         if (project.items.nodes.length > 0) {
-          core.warning(
-            `Project "${project.title}" has ${project.items.nodes.length} items. ` +
-              `Automatic item linking is not yet implemented. ` +
-              `You will need to add items manually.`
+          core.info(
+            `Linking ${project.items.nodes.length} items to project "${project.title}"...`
+          )
+
+          let linkedCount = 0
+          for (const item of project.items.nodes) {
+            if (!item.content || typeof item.content.number !== 'number') {
+              core.debug('Skipping non-issue item')
+              continue
+            }
+
+            const sourceIssueNumber = item.content.number
+            const targetIssue = issueMapping[sourceIssueNumber]
+
+            if (!targetIssue) {
+              core.warning(
+                `Could not find target issue for source issue #${sourceIssueNumber}. ` +
+                  `Ensure issues were copied before projects.`
+              )
+              continue
+            }
+
+            try {
+              const addItemMutation = `
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId,
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              `
+
+              await graphqlWithAuth(addItemMutation, {
+                projectId: newProjectId,
+                contentId: targetIssue.targetIssueNodeId
+              })
+
+              linkedCount++
+              core.debug(
+                `Linked issue #${targetIssue.targetIssueNumber} to project "${project.title}"`
+              )
+            } catch (error) {
+              core.warning(
+                `Failed to link issue #${targetIssue.targetIssueNumber} to project: ${error instanceof Error ? error.message : error}`
+              )
+            }
+          }
+
+          core.info(
+            `Linked ${linkedCount}/${project.items.nodes.length} items to project "${project.title}"`
           )
         }
 

@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import type { Octokit } from '@octokit/rest'
-import type { ActionConfig } from '../types.js'
+import type { ActionConfig, CopyIssuesResult, IssueMapping } from '../types.js'
 
 /**
  * Copy issues from source repository to target repository
@@ -8,7 +8,7 @@ import type { ActionConfig } from '../types.js'
 export async function copyIssues(
   client: Octokit,
   config: ActionConfig
-): Promise<number> {
+): Promise<CopyIssuesResult> {
   try {
     core.info('Fetching issues from source repository...')
 
@@ -29,7 +29,7 @@ export async function copyIssues(
     core.info(`Found ${actualIssues.length} issues to copy`)
 
     if (actualIssues.length === 0) {
-      return 0
+      return { count: 0, issueMapping: {} }
     }
 
     // Get existing labels in target repo
@@ -41,6 +41,7 @@ export async function copyIssues(
     const existingLabelNames = new Set(existingLabels.map((l) => l.name))
 
     let copiedCount = 0
+    const issueMapping: IssueMapping = {}
 
     // Copy each issue
     for (const issue of actualIssues) {
@@ -90,6 +91,12 @@ export async function copyIssues(
             issue.assignees?.map((a) => a.login).filter(Boolean) || undefined
         })
 
+        // Store mapping from source issue number to target issue
+        issueMapping[issue.number] = {
+          targetIssueNumber: newIssue.number,
+          targetIssueNodeId: newIssue.node_id
+        }
+
         // Copy comments
         if (issue.comments > 0) {
           const { data: comments } = await client.issues.listComments({
@@ -133,7 +140,7 @@ export async function copyIssues(
       }
     }
 
-    return copiedCount
+    return { count: copiedCount, issueMapping }
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to copy issues: ${error.message}`, {

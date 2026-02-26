@@ -34022,7 +34022,7 @@ async function copyIssues(client, config) {
         const actualIssues = issues.filter((issue) => !issue.pull_request);
         info(`Found ${actualIssues.length} issues to copy`);
         if (actualIssues.length === 0) {
-            return 0;
+            return { count: 0, issueMapping: {} };
         }
         // Get existing labels in target repo
         const { data: existingLabels } = await client.issues.listLabelsForRepo({
@@ -34032,6 +34032,7 @@ async function copyIssues(client, config) {
         });
         const existingLabelNames = new Set(existingLabels.map((l) => l.name));
         let copiedCount = 0;
+        const issueMapping = {};
         // Copy each issue
         for (const issue of actualIssues) {
             try {
@@ -34073,6 +34074,11 @@ async function copyIssues(client, config) {
                     labels: issueLabels,
                     assignees: issue.assignees?.map((a) => a.login).filter(Boolean) || undefined
                 });
+                // Store mapping from source issue number to target issue
+                issueMapping[issue.number] = {
+                    targetIssueNumber: newIssue.number,
+                    targetIssueNodeId: newIssue.node_id
+                };
                 // Copy comments
                 if (issue.comments > 0) {
                     const { data: comments } = await client.issues.listComments({
@@ -34109,7 +34115,7 @@ async function copyIssues(client, config) {
                 throw error$1; // Fail immediately as per requirements
             }
         }
-        return copiedCount;
+        return { count: copiedCount, issueMapping };
     }
     catch (error) {
         if (error instanceof Error) {
@@ -34124,7 +34130,7 @@ async function copyIssues(client, config) {
 /**
  * Copy Projects v2 from source repository to target repository
  */
-async function copyProjects(token, config, targetRepo) {
+async function copyProjects(token, config, targetRepo, issueMapping) {
     try {
         const graphqlWithAuth = graphql2.defaults({
             headers: {
@@ -34326,13 +34332,47 @@ async function copyProjects(token, config, targetRepo) {
                         warning(`Failed to create field "${field.name}": ${error instanceof Error ? error.message : error}`);
                     }
                 }
-                // Note: Linking issues would require matching by title from target repo
-                // This is complex and may not work well if issues haven't been copied yet
-                // or if titles have changed. Skipping for initial implementation.
+                // Link issues to the project
                 if (project.items.nodes.length > 0) {
-                    warning(`Project "${project.title}" has ${project.items.nodes.length} items. ` +
-                        `Automatic item linking is not yet implemented. ` +
-                        `You will need to add items manually.`);
+                    info(`Linking ${project.items.nodes.length} items to project "${project.title}"...`);
+                    let linkedCount = 0;
+                    for (const item of project.items.nodes) {
+                        if (!item.content || typeof item.content.number !== 'number') {
+                            debug('Skipping non-issue item');
+                            continue;
+                        }
+                        const sourceIssueNumber = item.content.number;
+                        const targetIssue = issueMapping[sourceIssueNumber];
+                        if (!targetIssue) {
+                            warning(`Could not find target issue for source issue #${sourceIssueNumber}. ` +
+                                `Ensure issues were copied before projects.`);
+                            continue;
+                        }
+                        try {
+                            const addItemMutation = `
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId,
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              `;
+                            await graphqlWithAuth(addItemMutation, {
+                                projectId: newProjectId,
+                                contentId: targetIssue.targetIssueNodeId
+                            });
+                            linkedCount++;
+                            debug(`Linked issue #${targetIssue.targetIssueNumber} to project "${project.title}"`);
+                        }
+                        catch (error) {
+                            warning(`Failed to link issue #${targetIssue.targetIssueNumber} to project: ${error instanceof Error ? error.message : error}`);
+                        }
+                    }
+                    info(`Linked ${linkedCount}/${project.items.nodes.length} items to project "${project.title}"`);
                 }
                 copiedCount++;
             }
@@ -34383,6 +34423,8 @@ async function run() {
             issuesCopied: 0,
             projectsCopied: 0
         };
+        // Track issue mapping for linking to projects
+        let issueMapping = {};
         // 6. Copy files (if enabled)
         if (config.copyFiles) {
             info('Copying files from default branch...');
@@ -34395,7 +34437,9 @@ async function run() {
         // 7. Copy issues (if enabled)
         if (config.copyIssues) {
             info('Copying issues...');
-            results.issuesCopied = await copyIssues(client, config);
+            const issueResult = await copyIssues(client, config);
+            results.issuesCopied = issueResult.count;
+            issueMapping = issueResult.issueMapping;
             info(`Copied ${results.issuesCopied} issues`);
         }
         else {
@@ -34404,7 +34448,7 @@ async function run() {
         // 8. Copy projects (if enabled)
         if (config.copyProjects) {
             info('Copying projects...');
-            results.projectsCopied = await copyProjects(config.githubToken, config, repo);
+            results.projectsCopied = await copyProjects(config.githubToken, config, repo, issueMapping);
             info(`Copied ${results.projectsCopied} projects`);
         }
         else {

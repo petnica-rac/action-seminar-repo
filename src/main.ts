@@ -50,6 +50,9 @@ export async function run(): Promise<void> {
       projectsCopied: 0
     }
 
+    // Track issue mapping for linking to projects
+    let issueMapping: import('./types.js').IssueMapping = {}
+
     // 6. Copy files (if enabled)
     if (config.copyFiles) {
       core.info('Copying files from default branch...')
@@ -62,7 +65,9 @@ export async function run(): Promise<void> {
     // 7. Copy issues (if enabled)
     if (config.copyIssues) {
       core.info('Copying issues...')
-      results.issuesCopied = await copyIssues(client, config)
+      const issueResult = await copyIssues(client, config)
+      results.issuesCopied = issueResult.count
+      issueMapping = issueResult.issueMapping
       core.info(`Copied ${results.issuesCopied} issues`)
     } else {
       core.info('Skipping issue copying (disabled)')
@@ -74,7 +79,8 @@ export async function run(): Promise<void> {
       results.projectsCopied = await copyProjects(
         config.githubToken,
         config,
-        repo
+        repo,
+        issueMapping
       )
       core.info(`Copied ${results.projectsCopied} projects`)
     } else {
